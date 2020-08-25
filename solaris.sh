@@ -10,8 +10,7 @@ cptlog(){
 }
 
 echo "#Socle `hostname` `who -b | tr -s ' '` - `prtconf -b | grep ORCL | awk '{print $2}'` - `date`";
-# [ `uptime | awk '{print $NF}'` -ge '31' ] && echo "x Uptime elevee : `uptime`"
-if [ -z /var/adm/sa/* ];
+if [ -f /var/adm/sa/sa`date +%d` ]; # test if sarfile of the say exist
 then
    [ `sar -u | grep Average | awk '{print $5}'` -le 40 ] && echo "x CPU Server `hostname` surcharge"
 fi
@@ -36,7 +35,9 @@ do
 	[ $i -ge 50 ] && echo "x Nb Nombre de LWP extraits du swap too high ( $i ) "
 	;;
 	4) # Espace de swap disponible
-	echo "* $i Kb swap disponible sur $swaptotal"
+	echo "* (`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc` % swap dispo )   $i Kb swap disponible sur $swaptotal kb"
+  # echo "`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc` % swap dispo"
+
 	;;
 	5) # Taille de la liste d'espaces libres
 	b=$(/usr/sbin/prtconf | /usr/bin/awk '/Memory/ {print $3*1024}');
@@ -107,11 +108,11 @@ do
 done
 
 # FS
-fs=`df -h | egrep -c "([89][0-9]+%)|(100)%|size"`
-[ $fs -ge 1 ] && echo "x $fs File system sature" && df -h | egrep -c "([89][0-9]+%)|(100)%|size"
+fs=`df -h | grep -v "Filesystem" | egrep -c "([89][0-9]+%)|(100)%|size"`
+[ $fs -ge 1 ] && echo "x $fs File system sature" && df -h | grep -v "Filesystem" | egrep  "([89][0-9]+%)|(100)%|size"
 
 # service
-svcs -x
+# svcs -x
 
 # Ingres
 pingr=`ps -ef | grep -v grep | grep -ic ingr`
