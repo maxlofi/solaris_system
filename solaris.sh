@@ -1,6 +1,9 @@
 #!/bin/bash
 # IFS=$'\n'       # make newlines the only separator
 
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+#echo -e "${RED}love${NC} Solaris"
 cptlog(){
   # $1 motif $2 file
   #da=`date +%b\ %d`
@@ -173,3 +176,41 @@ do
 done
 [[ $logerr -eq 0 ]] && echo "* Aucune erreurs dans les fichier de log"
 echo ""
+
+# modular debugger:
+#  echo "::memstat" | mdb -k
+
+mdb=`echo "::memstat" | mdb -k | egrep '[5-9][0-9]\%'`
+if [[ `echo ${mdb} | wc -l` -ge 1 ]];then
+  echo "x Mem stat :"
+  echo $mdb
+fi
+
+# nb file open by process
+# pfiles 29803 | nawk '/[0-9]: /{a++}END{print a}' WIP
+# proc cpu gourmand
+echo "* Processus utilisant le plus de CPU:"
+prstat -s cpu -Z 1 1 | grep -v PID | head -2
+
+# proc ram gourmand
+echo "* Processus utilisant le plus de RAM:"
+prstat -s rss -Z 1 1 | grep -v PID | head -2
+# prstat -s rss -n 2 -Z 1 1 | grep -v Total
+
+# check tmp
+dftmp=`df -h /tmp | egrep "([5-9][0-9]+%)|(100)\%"`
+if [[ -n ${dftmp} ]]; then
+  echo "x Partition /tmp à + de 50%"
+  df -h /tmp
+fi
+
+# Swap usage
+echo "* Processus utilisant le swap"
+for i in /proc/*; do
+ SWAP=`pmap -S $i 2> /dev/null | grep ^total | awk '{ print $3; }'`
+ [ "xx$SWAP" != "xx" ] && echo "$(($SWAP/1024)) Mbytes -> Proc $i"
+done | sort -n | tail -2
+
+
+#error metadevice ( WIP )
+#if [ -f /usr/sbin/metastat ] && /usr/sbin/metastat 2>/dev/null | egrep -i "resync|maint" > $out && [ -s $out ]; then
