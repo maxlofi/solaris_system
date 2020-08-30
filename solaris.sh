@@ -4,12 +4,34 @@
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 #echo -e "${RED}love${NC} Solaris"
+
+server="root@`hostname`:>"
 cptlog(){
   # $1 motif $2 file
   #da=`date +%b\ %d`
   # nberror=`egrep -i $i $2 | egrep -c "${da}"`
   nberror=`egrep -ic $i $2`
   echo $nberror
+}
+
+displaybar(){ #$1 pourcentage # $2 text % # $3 size ( ex 20)
+
+  inred=`echo "scale=0; ($3*$1/100)" | bc`
+
+  i=0
+  while [[ $i -lt ${inred} ]]; do
+    echo -ne "${RED}#"
+    i=$(($i+1))
+  done
+  i=0
+  goal=$(($3-${inred}))
+  while [[ i -lt ${goal} ]]; do
+    echo -en "${NC}#"
+    i=$(($i+1))
+  done
+  echo -ne " $1 % $2"
+  echo ""
+
 }
 
 echo "#Socle `hostname` `who -b | tr -s ' '` - `prtconf -b | grep ORCL | awk '{print $2}'` - `date`";
@@ -38,14 +60,17 @@ do
 	[ $i -ge 50 ] && echo "x Nb Nombre de LWP extraits du swap too high ( $i ) "
 	;;
 	4) # Espace de swap disponible
-	echo "* (`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc` % swap dispo )   $i Kb swap disponible sur $swaptotal kb"
+  swapdispo=`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc`
+	echo "* ($swapdispo % swap dispo )   $i Kb swap disponible sur $swaptotal kb"
+  displaybar $swapdispo "swap dispo" 30
   # echo "`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc` % swap dispo"
 
 	;;
 	5) # Taille de la liste d'espaces libres
 	b=$(/usr/sbin/prtconf | /usr/bin/awk '/Memory/ {print $3*1024}');
 	m=$(vmstat 1 2 | tail -1 | awk "{print (\$5/$b)*100}")
-	[ ${m%.*} -le 15 ] && echo "x Memoire libre critique ( $m ) % libre" || echo "* $m % memoire libre "
+	[ ${m%.*} -le 15 ] && echo "x Memoire libre critique ( $m ) % libre ($(($b/1024)) total)" || echo "* $m % memoire libre ($(($b/1024)) total)"
+  displaybar $m "ram dispo" 30
 	;;
 	6) #Pages récupérées
 	pagerecup=$i
@@ -97,7 +122,7 @@ done
 prtdiag -v | grep -i fail
 # IO error
 diskerro=0
-[ `iostat -en | egrep -v "error|device" | awk '{ if ($4 > 30 )print $4, " = ", $5}' | wc -l ` -ge 1 ] && diskerro=1 && echo "x Error disk"
+[ `iostat -en | egrep -v "error|device" | awk '{ if ($4 > 30 )print $4, " = ", $5}' | wc -l ` -ge 1 ] && diskerro=1 && echo "x Error disk" && echo "${server} iostat -en"
 [ $diskerro -eq 1 ] && iostat -en | egrep -v "error|device" | awk '{ if ($4 > 30 )print " ",$4, " = ", $5}' | sort -nr
 
 
@@ -214,3 +239,23 @@ done | sort -n | tail -2
 
 #error metadevice ( WIP )
 #if [ -f /usr/sbin/metastat ] && /usr/sbin/metastat 2>/dev/null | egrep -i "resync|maint" > $out && [ -s $out ]; then
+
+# Drawing
+# #echo -e "${RED}love${NC} Solaris"
+# calcul ptc in RED   swapdispo=`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc`
+
+inred=`echo "scale=0; (20*${swapdispo}/100)" | bc`
+
+i=0
+while [[ $i -lt ${inred} ]]; do
+  echo -ne "${RED}#"
+  i=$(($i+1))
+done
+i=0
+goal=$((20-${inred}))
+while [[ i -lt ${goal} ]]; do
+  echo -en "${NC}#"
+  i=$(($i+1))
+done
+echo -ne " ${swapdispo} % swap dispo"
+echo ""
