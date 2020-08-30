@@ -239,23 +239,3 @@ done | sort -n | tail -2
 
 #error metadevice ( WIP )
 #if [ -f /usr/sbin/metastat ] && /usr/sbin/metastat 2>/dev/null | egrep -i "resync|maint" > $out && [ -s $out ]; then
-
-# Drawing
-# #echo -e "${RED}love${NC} Solaris"
-# calcul ptc in RED   swapdispo=`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc`
-
-inred=`echo "scale=0; (20*${swapdispo}/100)" | bc`
-
-i=0
-while [[ $i -lt ${inred} ]]; do
-  echo -ne "${RED}#"
-  i=$(($i+1))
-done
-i=0
-goal=$((20-${inred}))
-while [[ i -lt ${goal} ]]; do
-  echo -en "${NC}#"
-  i=$(($i+1))
-done
-echo -ne " ${swapdispo} % swap dispo"
-echo ""
