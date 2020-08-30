@@ -2,6 +2,8 @@
 # IFS=$'\n'       # make newlines the only separator
 
 RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;36m'
 NC='\033[0m' # No Color
 #echo -e "${RED}love${NC} Solaris"
 
@@ -15,22 +17,22 @@ cptlog(){
 }
 
 displaybar(){ #$1 pourcentage # $2 text % # $3 size ( ex 20)
-
-  inred=`echo "scale=0; ($3*$1/100)" | bc`
-
-  i=0
-  while [[ $i -lt ${inred} ]]; do
-    echo -ne "${RED}#"
+inred=`echo "scale=0; ($3*$1/100)" | bc`
+i=0
+echo -n "["
+while [[ $i -lt ${inred} ]]; do
+    echo -ne "${BLUE}|"
     i=$(($i+1))
-  done
-  i=0
-  goal=$(($3-${inred}))
-  while [[ i -lt ${goal} ]]; do
-    echo -en "${NC}#"
+done
+i=0
+goal=$(($3-${inred}))
+while [[ i -lt ${goal} ]]; do
+    echo -en "${NC} "
     i=$(($i+1))
-  done
-  echo -ne " $1 % $2"
-  echo ""
+done
+echo -n "]"
+echo -ne " $1 % $2"
+echo ""
 
 }
 
@@ -51,13 +53,13 @@ do
 	# echo "=D $i"
 	case $a in
 	1) #Nombre de threads de noyau dans la file d'attente de répartition
-	[ $i -ge 50 ] && echo "x Nb thread too high ( $i )"
+	[ $i -ge 50 ] && echo -e "x Nb thread too high ( ${RED}$i${NC} )"
 	;;
 	2) # Nombre de threads de noyau bloqués qui sont en attente de ressources
-	[ $i -ge 50 ] && echo "x Nb thread bloque too high ( $i ) "
+	[ $i -ge 50 ] && echo -e "x Nb thread bloque too high ( ${RED}$i${NC} ) "
 	;;
 	3) #Nombre de LWP extraits du swap qui attendent la fin du traitement des ressources
-	[ $i -ge 50 ] && echo "x Nb Nombre de LWP extraits du swap too high ( $i ) "
+	[ $i -ge 50 ] && echo -e "x Nb Nombre de LWP extraits du swap too high ( ${RED}$i${NC} ) "
 	;;
 	4) # Espace de swap disponible
   swapdispo=`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc`
@@ -78,37 +80,38 @@ do
 	7) # Erreurs mineures et majeures
 	errpagemin=$i
 	if [[ $i -gt 39 ]]; then
-		echo "x erreurs Pages ( $i )"
+		echo -e "x erreurs Pages ( ${RED}$i${NC} )"
 	fi
   ;;
 	17) # Interruptions par seconde
 	if [[ $i -gt 200 ]]; then
-		echo "x Interruptions par seconde ( $i )"
+		echo -e "x Interruptions par seconde ( ${RED}$i${NC} )"
 	fi
   ;;
 	18) # Appels système par seconde
 	if [[ $i -gt 200 ]]; then
-		echo "x Appels system par seconde ( $i )"
+		echo -e "x Appels system par seconde ( ${RED}$i${NC} )"
 	fi
 	;;
 	19) # Taux de changement de contexte CPU
 	if [[ $i -gt 200 ]]; then
-		echo "x Taux de changement de contexte CPU ( $i )"
+		echo -e "x Taux de changement de contexte CPU ( ${RED}$i${NC} )"
 	fi
 	;;
 	20) # Temps utilisateur
 	if [[ $i -gt 50 ]]; then
-		echo "x Temps cpu user trop eleve ( $i )"
+		echo -e "x Temps cpu user trop eleve ( ${RED}$i${NC} )"
 	fi
 	;;
 	21) # Temps système
 	if [[ $i -gt 50 ]]; then
-		echo "x Temps cpu systeme trop eleve ( $i )"
+		echo -e "x Temps cpu systeme trop eleve ( ${RED}$i${NC} )"
 	fi
 	;;
 	22) # Temps d'inactivité
 	if [[ $i -lt 20 ]]; then
-		echo "x Server surcharge ( $i % idle)"
+		echo -e "x Server surcharge ( ${RED}$i${NC} % idle)"
+    displaybar $i " % idle" 30
 	fi
 	;;
 	esac
@@ -165,8 +168,8 @@ viphost=`grep -ic vip /etc/hosts`
 pora=`ps -ef | grep -v grep | egrep -ic oracle`
 if [ ${pora} -ge 1 ];then
   echo -ne "${pora} proc Oracle | `ps -ef | egrep -i oracle | grep -v grep | egrep -ic ora_pmon` proc pmon | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -vic scan` proc Listener | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -ic scan` Listener SCAN"
+  echo ""
 fi
-echo ""
 # HBA
 hba=`fcinfo  hba-port | egrep -c "HBA Port"`
 [ $hba -ge 1 ] && echo -ne "${hba} cartes HBA , `fcinfo  hba-port | egrep -ic online` Carte Online, `fcinfo  hba-port | egrep -ic offline` Carte Offline | `luxadm -e port | grep -ic 'CONNECTED' ` pci connected"
