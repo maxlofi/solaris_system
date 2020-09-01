@@ -18,12 +18,15 @@ cptlog(){
 
 displaybar(){ #$1 pourcentage # $2 text % # $3 size ( ex 20)
 inred=`echo "scale=0; ($3*$1/100)" | bc`
+inred=$(($inred-1))
 i=0
+
 echo -n "["
 while [[ $i -lt ${inred} ]]; do
     echo -ne "${BLUE}|"
     i=$(($i+1))
 done
+echo -ne "${RED}|"
 i=0
 goal=$(($3-${inred}))
 while [[ i -lt ${goal} ]]; do
@@ -42,6 +45,11 @@ then
    [ `sar -u | grep Average | awk '{print $5}'` -le 40 ] && echo "x CPU Server `hostname` surcharge"
 fi
 
+# idle
+
+idle=`iostat -c | egrep "[0-9]" | awk '{print$4}'`
+
+displaybar $idle " % idle " 30
 lsvmstat=`vmstat 1 2 | tail -1`
 a=1
 swapuser=`swap -s | awk '{print $9}' | sed s"/k//"`
