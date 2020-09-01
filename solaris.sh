@@ -1,14 +1,19 @@
 #!/bin/bash
 # IFS=$'\n'       # make newlines the only separator
-
-RED='\033[0;31m'
+OLDIFS=$IFS # backup orginal $IFS var
+RED='\033[0;31m' # some color
 GREEN='\033[0;32m'
 BLUE='\033[0;36m'
 NC='\033[0m' # No Color
-#echo -e "${RED}love${NC} Solaris"
+#echo -e "${RED}love${NC} Solaris" # example
+
+# Array of commands
+cmd=()
+cmd+=("Help commands")
+cmd+=("ssh root@`hostname`")
 
 server="root@`hostname`:>"
-cptlog(){
+cptlog(){ # $1 keyword to search for # $2 logfile to search in
   # $1 motif $2 file
   #da=`date +%b\ %d`
   # nberror=`egrep -i $i $2 | egrep -c "${da}"`
@@ -148,8 +153,9 @@ done
 
 # FS
 fs=`df -h | grep -v "Filesystem" | egrep -c "([89][0-9]+%)|(100)%|size"`
-[ $fs -ge 1 ] && echo "x $fs File system sature" && df -h | grep -v "Filesystem" | egrep  "([89][0-9]+%)|(100)%|size"
-
+if [ $fs -ge 1 ];then
+  echo "x $fs File system sature" && df -h | grep -v "Filesystem" | egrep  "([89][0-9]+%)|(100)%|size"
+fi
 # service
 # svcs -x
 
@@ -171,6 +177,7 @@ if [[ $pzz -ge 1 ]]; then
   echo -ne "x ${RED}$pzz${NC} process zombies : "
   for i in `ps -ef | grep -v grep | grep -i defun | awk '{print $2}'`;do echo -ne "$i | ";done
   echo ""
+  cmd+=('ps -ef | grep -v grep | grep -i defun')
 else
   echo "* Pas de proc zombie"
 fi
@@ -178,13 +185,16 @@ fi
 
 # vip
 viphost=`grep -ic vip /etc/hosts`
-[ ${viphost} -ge 1 ] && echo "${viphost} servers Cluster"
-
+if [ ${viphost} -ge 1 ];then
+  echo "${viphost} servers Cluster"
+  cmd+=('egrep -i vip /etc/hosts')
+fi
 # Oracle
 pora=`ps -ef | grep -v grep | egrep -ic oracle`
 if [ ${pora} -ge 1 ];then
   echo -ne "$ {pora} proc Oracle | `ps -ef | egrep -i oracle | grep -v grep | egrep -ic ora_pmon` proc pmon | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -vic scan` proc Listener | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -ic scan` Listener SCAN"
   echo ""
+  cmd+=('ps -ef | egrep -i oracle | grep -v grep | egrep -i ora_pmon')
 fi
 # HBA
 hba=`fcinfo  hba-port | egrep -c "HBA Port"`
@@ -196,6 +206,7 @@ for ct in `fcinfo  hba-port | egrep "HBA Port" | cut -d ":" -f 2`
 do
   hbaerr=`fcinfo  hba-port $ct | egrep -c offline`
   [ ${hbaerr} -ge 1 ] && echo "$ct `fcinfo  hba-port $ct | egrep offline` "
+  cmd+=('fcinfo  hba-port $ct | egrep offline')
 done
 # echo "`luxadm -e port | grep -ic 'CONNECTED' ` pci connected"
 
@@ -203,6 +214,7 @@ done
 if [[ -e /sbin/zpool ]]; then
   zp=`zpool list | grep -vc NAME`
   zpool status -xv
+  cmd+=('zpool status -xv')
 fi
 # [[ ${zp} -ge 1 ]] && echo -ne "${zp} pool zfs,`zpool list | grep -v NAME | grep -vc ONLINE` offline/degrade"
 if [[ ${zp} -ge 1 ]]; then
@@ -221,12 +233,18 @@ do
   for i in {"failed","error","erreur","warning","ban ","denied","kernel"}
   do
     [ -f $file ] && ero="$(cptlog $i $file)"
-    [ "$ero" != '0' ] && echo -ne " $ero $i dans $file | " && logerr=$((logerr+1))
+    if [ "$ero" != '0' ];then
+       logerr=$((logerr+1))
+       echo -e "egrep -i $i ${file} ${RED}(${ero}${NC})${BLUE} `egrep -i $i ${file} | head -1 | cut -d ' ' -f 1,3`${NC}"
+     fi
     ero='0'
   done
 done
 if [[ $logerr -eq 0 ]];then
    echo "* Aucune erreurs dans les fichier de log"
+   cmd+=("date && egrep -ic 'failed|error,kernel' /var/adm/messages")
+ else
+   echo ""
 fi
 
 # modular debugger:
@@ -236,6 +254,7 @@ mdb=`echo "::memstat" | mdb -k | egrep '[5-9][0-9]\%'`
 if [[ `echo ${mdb} | wc -l` -ge 1 ]];then
   echo "x Mem stat :"
   echo $mdb
+  cmd+=('::memstat" | mdb -k')
 fi
 
 # nb file open by process
@@ -254,6 +273,7 @@ dftmp=`df -h /tmp | egrep "([5-9][0-9]+%)|(100)\%"`
 if [[ -n ${dftmp} ]]; then
   echo "x Partition /tmp à + de 50%"
   df -h /tmp
+  cmd+=('df -h /tmp')
 fi
 
 # Swap usage
@@ -264,5 +284,20 @@ for i in /proc/*; do
 done | sort -n | tail -2
 
 
-#error metadevice ( WIP )
+#error metadevice ( Work in progress )
 #if [ -f /usr/sbin/metastat ] && /usr/sbin/metastat 2>/dev/null | egrep -i "resync|maint" > $out && [ -s $out ]; then
+
+#set IFS to include var with space
+# Display all cmd generate
+IFS=$'\n'
+for i in ${cmd[@]}
+do
+  echo " * $i"
+done
+
+# Display commands df -h for Fiile system
+if [ $fs -ge 1 ];then
+  df -h | egrep "33" | awk '{print "df -h",$NF}'
+fi
+IFS=$OLDIFS # reset to the original value $IFS
+echo "done"
