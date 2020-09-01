@@ -138,7 +138,7 @@ diskerro=0
 
 
 # close Waiting
-[ `netstat -an | grep -c CLOSE_WAIT` -ge 2 ] && echo "X Presence de `netstat -an | grep -c CLOSE_WAIT` Clos_wait" || echo "Pas de CLOSE_WAIT"
+[ `netstat -an | grep -c CLOSE_WAIT` -ge 2 ] && echo "X Presence de `netstat -an | grep -c CLOSE_WAIT` Clos_wait" || echo "* Pas de connexion CLOSE_WAIT"
 
 # IO saturation
 for i in `iostat -xpn 1 2 | grep -v extended | awk '{ if ($10 > 60) print $10, " = ",$11}' | sort -nr`
@@ -160,14 +160,22 @@ if [[ $pingr -ge 1 ]]; then
     do
       echo -ne " `ps -ef | grep -v grep | grep -i ingr | egrep -ic ${proc}` process ${proc} | "
     done
+    echo ""
 fi
 
 
 #Zombie
 pzz=`ps -ef | grep -v grep | grep -ci defun`
-[ $pzz -ge 1 ] && echo -ne "x $pzz process zombies : " || echo "* Pas de proc zombie"
-for i in `ps -ef | grep -v grep | grep -i defun | awk '{print $2}'`;do echo -ne "$i | ";done
-echo ""
+
+if [[ $pzz -ge 1 ]]; then
+  echo -ne "x ${RED}$pzz${NC} process zombies : "
+  for i in `ps -ef | grep -v grep | grep -i defun | awk '{print $2}'`;do echo -ne "$i | ";done
+  echo ""
+else
+  echo "* Pas de proc zombie"
+fi
+
+
 # vip
 viphost=`grep -ic vip /etc/hosts`
 [ ${viphost} -ge 1 ] && echo "${viphost} servers Cluster"
@@ -175,13 +183,15 @@ viphost=`grep -ic vip /etc/hosts`
 # Oracle
 pora=`ps -ef | grep -v grep | egrep -ic oracle`
 if [ ${pora} -ge 1 ];then
-  echo -ne "${pora} proc Oracle | `ps -ef | egrep -i oracle | grep -v grep | egrep -ic ora_pmon` proc pmon | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -vic scan` proc Listener | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -ic scan` Listener SCAN"
+  echo -ne "$ {pora} proc Oracle | `ps -ef | egrep -i oracle | grep -v grep | egrep -ic ora_pmon` proc pmon | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -vic scan` proc Listener | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -ic scan` Listener SCAN"
   echo ""
 fi
 # HBA
 hba=`fcinfo  hba-port | egrep -c "HBA Port"`
-[ $hba -ge 1 ] && echo -ne "${hba} cartes HBA , `fcinfo  hba-port | egrep -ic online` Carte Online, `fcinfo  hba-port | egrep -ic offline` Carte Offline | `luxadm -e port | grep -ic 'CONNECTED' ` pci connected"
-echo ""
+if [[ $hba -ge 1 ]]; then
+  echo -ne "${hba} cartes HBA , `fcinfo  hba-port | egrep -ic online` Carte Online, `fcinfo  hba-port | egrep -ic offline` Carte Offline | `luxadm -e port | grep -ic 'CONNECTED' ` pci connected"
+  echo ""
+fi
 for ct in `fcinfo  hba-port | egrep "HBA Port" | cut -d ":" -f 2`
 do
   hbaerr=`fcinfo  hba-port $ct | egrep -c offline`
@@ -189,17 +199,22 @@ do
 done
 # echo "`luxadm -e port | grep -ic 'CONNECTED' ` pci connected"
 
-[ /sbin/zpool ] && zp=`zpool list | grep -vc NAME`
-[ /sbin/zpool ] && zpool status -xv
-[ ${zp} -ge 2 ] && echo -ne "${zp} pool zfs,`zpool list | grep -v NAME | grep -vc ONLINE` offline/degrade"
+
+if [[ -e /sbin/zpool ]]; then
+  zp=`zpool list | grep -vc NAME`
+  zpool status -xv
+fi
+# [[ ${zp} -ge 1 ]] && echo -ne "${zp} pool zfs,`zpool list | grep -v NAME | grep -vc ONLINE` offline/degrade"
 if [[ ${zp} -ge 1 ]]; then
+  echo -ne "${zp} pool zfs,`zpool list | grep -v NAME | grep -vc ONLINE` offline/degrade"
+  echo ""
   zpe=`zpool list | grep -v NAME | egrep -vc ONLINE`
   if [[ ${zpe} -ge 1 ]]; then
     echo "x Pool offline"
     zpool list | grep -v ONLINE
+    echo ""
   fi
 fi
-echo ""
 logerr=0
 for file in {"/var/log/syslog","/var/log/secure","/var/log/messages","/var/adm/messages"}
 do
@@ -210,8 +225,9 @@ do
     ero='0'
   done
 done
-[[ $logerr -eq 0 ]] && echo "* Aucune erreurs dans les fichier de log"
-echo ""
+if [[ $logerr -eq 0 ]];then
+   echo "* Aucune erreurs dans les fichier de log"
+fi
 
 # modular debugger:
 #  echo "::memstat" | mdb -k
