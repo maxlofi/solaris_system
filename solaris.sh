@@ -11,6 +11,9 @@ NC='\033[0m' # No Color
 cmd=()
 cmd+=("ssh root@`hostname`")
 
+# diag phrase
+diag="# Le server `hostname` "
+
 server="root@`hostname`:>"
 cptlog(){ # $1 keyword to search for # $2 logfile to search in
   # $1 motif $2 file
@@ -52,7 +55,10 @@ fi
 # idle
 
 idle=`iostat -c | egrep "[0-9]" | awk '{print$4}'`
-
+# Make phrase idle
+if [[ ${idle} -lt 99 ]]; then
+  diag="${diag} est surcharge au niveau CPU (${idle}% idle), "
+fi
 displaybar $idle " % idle " 30
 lsvmstat=`vmstat 1 2 | tail -1`
 a=1
@@ -74,16 +80,23 @@ do
 	[ $i -ge 50 ] && echo -e "x Nb Nombre de LWP extraits du swap too high ( ${RED}$i${NC} ) "
 	;;
 	4) # Espace de swap disponible
-  swapdispo=`echo "scale=1; (${swapavaiable}/${swaptotal})*100" | bc`
+  swapdispo=`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc`
 	echo "* ($swapdispo % swap dispo )   $i Kb swap disponible sur $swaptotal kb"
   displaybar $swapdispo "swap dispo" 30
-  # echo "`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc` % swap dispo"
-
+  swapd=$( printf "%.0f" $swapdispo)
+  if [[ ${swapd} -lt 99  ]]; then
+    diag="${diag} le swap est fortement solicite, seul ${swapd} % est disponible,"
+  fi
 	;;
 	5) # Taille de la liste d'espaces libres
 	b=$(/usr/sbin/prtconf | /usr/bin/awk '/Memory/ {print $3*1024}');
 	m=$(vmstat 1 2 | tail -1 | awk "{print (\$5/$b)*100}")
-	[ ${m%.*} -le 15 ] && echo "x Memoire libre critique ( $m ) % libre ($(($b/1024)) total)" || echo "* $m % memoire libre ($(($b/1024)) total)"
+	if [[ ${m%.*} -le 99 ]];then
+    echo "x Memoire libre critique ( $m ) % libre ($(($b/1024)) total)"
+    diag="${diag} la memoire ram est saturee, ${m} % de ram est disponible."
+  else
+    echo "* $m % memoire libre ($(($b/1024)) total)"
+  fi
   displaybar $m "ram dispo" 30
 	;;
 	6) #Pages récupérées
@@ -131,15 +144,20 @@ do
 done
 
 # materiel
-[ `fmadm faulty | wc -l` -gt 0 ] && echo "x Erreur materiel potentiel ! (please run fmadm faulty)" && fmadm faulty | grep "Fault class"  | sort -u
-
+mat=`fmadm faulty | wc -l`
+if [[ ${mat} -gt 0 ]];then
+   echo "x Erreur materiel potentiel ! (please run fmadm faulty)" && fmadm faulty | grep "Fault class"  | sort -u
+   diag="$diag, Une erreur materiel sur le server `hostname`"
+fi
 [ `prtdiag -v | grep -ic fail` -gt 0 ] && echo "x Erreur Materiel "
 prtdiag -v | grep -i fail
 # IO error
 diskerro=0
 [ `iostat -en | egrep -v "error|device" | awk '{ if ($4 > 30 )print $4, " = ", $5}' | wc -l ` -ge 1 ] && diskerro=1 && echo "x Error disk" && echo "${server} iostat -en"
-[ $diskerro -eq 1 ] && iostat -en | egrep -v "error|device" | awk '{ if ($4 > 30 )print " ",$4, " = ", $5}' | sort -nr
-
+if [[ $diskerro -eq 1 ]];then
+  iostat -en | egrep -v "error|device" | awk '{ if ($4 > 30 )print " ",$4, " = ", $5}' | sort -nr
+  diag="$diag, plusieurs erreur I/O sont presentes"
+fi
 
 # close Waiting
 [ `netstat -an | grep -c CLOSE_WAIT` -ge 2 ] && echo -e "X Presence de ${RED}`netstat -an | grep -c CLOSE_WAIT`${NC} Clos_wait" || echo -e "* Pas de connexion ${GREEN}CLOSE_WAIT${NC}"
@@ -154,6 +172,7 @@ done
 fs=`df -h | grep -v "Filesystem" | egrep -c "([89][0-9]+%)|(100)%|size"`
 if [ $fs -ge 1 ];then
   echo -e "x ${BLUE}$fs${NC} File system sature" && df -h | grep -v "Filesystem" | egrep  "([89][0-9]+%)|(100)%|size"
+  diag="$diag ${fs} File system occupe(s) a plus de 80%."
 fi
 # service
 # svcs -x
@@ -175,10 +194,12 @@ pzz=`ps -ef | grep -v grep | grep -ci defun`
 if [[ $pzz -ge 1 ]]; then
   echo -ne "x ${RED}$pzz${NC} process zombies : "
   for i in `ps -ef | grep -v grep | grep -i defun | awk '{print $2}'`;do echo -ne "$i | ";done
+  diag="${diag} le server `hostname` a ${pzz} processus zombie(s)."
   echo ""
   cmd+=('ps -ef | grep -v grep | grep -i defun')
 else
   echo -e "* Pas de proc ${GREEN}zombie${NC}"
+  diag="${diag} le server `hostname` n'as pas processus zombie."
 fi
 
 
@@ -187,6 +208,7 @@ viphost=`grep -ic vip /etc/hosts`
 if [ ${viphost} -ge 1 ];then
   echo "${viphost} servers Cluster"
   cmd+=('egrep -i vip /etc/hosts')
+  diag="${diag} , nota : Cluster a ${viphost} noeuds"
 fi
 # Oracle
 pora=`ps -ef | grep -v grep | egrep -ic oracle`
@@ -224,6 +246,7 @@ if [[ ${zp} -ge 1 ]]; then
     echo "x Pool offline"
     zpool list | grep -v ONLINE
     echo ""
+    diag="${diag} , le server `hostname` a ${zpe} pool ZFS en erreurs"
   fi
 fi
 logerr=0
@@ -242,6 +265,7 @@ done
 if [[ $logerr -eq 0 ]];then
    echo "* Aucune erreurs dans les fichier de log"
    cmd+=("date && egrep -ic 'failed|error,kernel' /var/adm/messages")
+   diag="${diag} , aucune erreur n'apparait dans les fichiers de log systeme"
  else
    echo ""
 fi
@@ -277,9 +301,10 @@ IFS=$OLDIFS
 # check tmp
 dftmp=`df -h /tmp | egrep "([5-9][0-9]+%)|(100)\%"`
 if [[ -n ${dftmp} ]]; then
-  echo -e "x ${RED}Partition /tmp${NC} à + de 50%"
+  echo -e "x ${RED}Partition /tmp${NC} a + de 50%"
   df -h /tmp
   cmd+=('df -h /tmp')
+  diag="${diag} , attention le file system /tmp est utilise a plus de la moitie, celui etant utilise comme partition swap, cela peut provoquer des ralentissements"
 fi
 
 # Swap usage
@@ -305,5 +330,6 @@ done
 if [ $fs -ge 1 ];then
   df -h | egrep  "([89][0-9]+%)|(100)%|size" | awk '{print "df -h",$NF}'
 fi
-# df -h | egrep  "33" | awk '{print "df -h",$NF}'
 IFS=$OLDIFS # reset to the original value $IFS
+
+echo $diag
