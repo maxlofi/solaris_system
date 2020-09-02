@@ -52,12 +52,22 @@ then
    [ `sar -u | grep Average | awk '{print $5}'` -le 40 ] && echo "x CPU Server `hostname` surcharge"
 fi
 
+up=`uptime`
+if [[ `echo $up | grep -ic day` ]]; then
+  #day in uptime
+  day=`echo $up | awk '{print $3}'`
+  if [[ $day -gt 100 ]]; then
+    diag="${diag}, a un uptime eleve, (${day} jours) "
+  fi
+fi
 # idle
 
 idle=`iostat -c | egrep "[0-9]" | awk '{print$4}'`
 # Make phrase idle
-if [[ ${idle} -lt 99 ]]; then
+if [[ ${idle} -lt 30 ]]; then
   diag="${diag} est surcharge au niveau CPU (${idle}% idle), "
+else
+  diag="${diag} n'est pas surcharge au niveau CPU (${idle}% idle), "
 fi
 displaybar $idle " % idle " 30
 lsvmstat=`vmstat 1 2 | tail -1`
@@ -71,32 +81,37 @@ do
 	# echo "=D $i"
 	case $a in
 	1) #Nombre de threads de noyau dans la file d'attente de répartition
-	[ $i -ge 50 ] && echo -e "x Nb thread too high ( ${RED}$i${NC} )"
+	[ $i -ge 70 ] && echo -e "x Nb thread too high ( ${RED}$i${NC} )"
 	;;
 	2) # Nombre de threads de noyau bloqués qui sont en attente de ressources
-	[ $i -ge 50 ] && echo -e "x Nb thread bloque too high ( ${RED}$i${NC} ) "
+	[ $i -ge 1500 ] && echo -e "x Nb thread bloque too high ( ${RED}$i${NC} ) "
 	;;
 	3) #Nombre de LWP extraits du swap qui attendent la fin du traitement des ressources
-	[ $i -ge 50 ] && echo -e "x Nb Nombre de LWP extraits du swap too high ( ${RED}$i${NC} ) "
+	[ $i -ge 1500 ] && echo -e "x Nb Nombre de LWP extraits du swap too high ( ${RED}$i${NC} ) "
 	;;
 	4) # Espace de swap disponible
   swapdispo=`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc`
 	echo "* ($swapdispo % swap dispo )   $i Kb swap disponible sur $swaptotal kb"
   displaybar $swapdispo "swap dispo" 30
   swapd=$( printf "%.0f" $swapdispo)
-  if [[ ${swapd} -lt 99  ]]; then
-    diag="${diag} le swap est fortement solicite, seul ${swapd} % est disponible,"
+  if [[ ${swapd} -lt 40  ]]; then
+    usage="fortement"
+  else
+    usage="faiblement"
   fi
+  diag="${diag} le swap est ${usage} solicite, seul ${swapd} % est disponible,"
 	;;
 	5) # Taille de la liste d'espaces libres
 	b=$(/usr/sbin/prtconf | /usr/bin/awk '/Memory/ {print $3*1024}');
 	m=$(vmstat 1 2 | tail -1 | awk "{print (\$5/$b)*100}")
-	if [[ ${m%.*} -le 99 ]];then
+	if [[ ${m%.*} -le 30 ]];then
     echo "x Memoire libre critique ( $m ) % libre ($(($b/1024)) total)"
-    diag="${diag} la memoire ram est saturee, ${m} % de ram est disponible."
+    usage="fortement"
   else
     echo "* $m % memoire libre ($(($b/1024)) total)"
+    usage="faiblement"
   fi
+  diag="${diag} la memoire ram est ${usage} utilisee, ${m} % de ram est disponible."
   displaybar $m "ram dispo" 30
 	;;
 	6) #Pages récupérées
@@ -148,6 +163,8 @@ mat=`fmadm faulty | wc -l`
 if [[ ${mat} -gt 0 ]];then
    echo "x Erreur materiel potentiel ! (please run fmadm faulty)" && fmadm faulty | grep "Fault class"  | sort -u
    diag="$diag, Une erreur materiel sur le server `hostname`"
+ else
+   diag="$diag, Pas d'erreur materiel sur le server `hostname`"
 fi
 [ `prtdiag -v | grep -ic fail` -gt 0 ] && echo "x Erreur Materiel "
 prtdiag -v | grep -i fail
@@ -166,6 +183,7 @@ fi
 for i in `iostat -xpn 1 2 | grep -v extended | awk '{ if ($10 > 60) print $10, " = ",$11}' | sort -nr`
 do
   echo "x Saturation disk : $i"
+  diag="$diag, certain disk sont sature d'I/O."
 done
 
 # FS
@@ -182,7 +200,7 @@ pingr=`ps -ef | grep -v grep | grep -ic ingr`
 if [[ $pingr -ge 1 ]]; then
   for proc in {"gcc","iigcd","dmfacp","dmfrcp"}
     do
-      echo -ne " `ps -ef | grep -v grep | grep -i ingr | egrep -ic ${proc}` process ${proc} | "
+      echo -ne " ${BLUE}`ps -ef | grep -v grep | grep -i ingr | egrep -ic ${proc}`${NC} process ${proc} | "
     done
     echo ""
 fi
