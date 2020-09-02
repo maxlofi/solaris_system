@@ -9,7 +9,6 @@ NC='\033[0m' # No Color
 
 # Array of commands
 cmd=()
-cmd+=("Help commands")
 cmd+=("ssh root@`hostname`")
 
 server="root@`hostname`:>"
@@ -75,7 +74,7 @@ do
 	[ $i -ge 50 ] && echo -e "x Nb Nombre de LWP extraits du swap too high ( ${RED}$i${NC} ) "
 	;;
 	4) # Espace de swap disponible
-  swapdispo=`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc`
+  swapdispo=`echo "scale=1; (${swapavaiable}/${swaptotal})*100" | bc`
 	echo "* ($swapdispo % swap dispo )   $i Kb swap disponible sur $swaptotal kb"
   displaybar $swapdispo "swap dispo" 30
   # echo "`echo "scale=2; (${swapavaiable}/${swaptotal})*100" | bc` % swap dispo"
@@ -143,7 +142,7 @@ diskerro=0
 
 
 # close Waiting
-[ `netstat -an | grep -c CLOSE_WAIT` -ge 2 ] && echo "X Presence de `netstat -an | grep -c CLOSE_WAIT` Clos_wait" || echo "* Pas de connexion CLOSE_WAIT"
+[ `netstat -an | grep -c CLOSE_WAIT` -ge 2 ] && echo -e "X Presence de ${RED}`netstat -an | grep -c CLOSE_WAIT`${NC} Clos_wait" || echo -e "* Pas de connexion ${GREEN}CLOSE_WAIT${NC}"
 
 # IO saturation
 for i in `iostat -xpn 1 2 | grep -v extended | awk '{ if ($10 > 60) print $10, " = ",$11}' | sort -nr`
@@ -154,7 +153,7 @@ done
 # FS
 fs=`df -h | grep -v "Filesystem" | egrep -c "([89][0-9]+%)|(100)%|size"`
 if [ $fs -ge 1 ];then
-  echo "x $fs File system sature" && df -h | grep -v "Filesystem" | egrep  "([89][0-9]+%)|(100)%|size"
+  echo -e "x ${BLUE}$fs${NC} File system sature" && df -h | grep -v "Filesystem" | egrep  "([89][0-9]+%)|(100)%|size"
 fi
 # service
 # svcs -x
@@ -179,7 +178,7 @@ if [[ $pzz -ge 1 ]]; then
   echo ""
   cmd+=('ps -ef | grep -v grep | grep -i defun')
 else
-  echo "* Pas de proc zombie"
+  echo -e "* Pas de proc ${GREEN}zombie${NC}"
 fi
 
 
@@ -192,20 +191,20 @@ fi
 # Oracle
 pora=`ps -ef | grep -v grep | egrep -ic oracle`
 if [ ${pora} -ge 1 ];then
-  echo -ne "${pora} proc Oracle | `ps -ef | egrep -i oracle | grep -v grep | egrep -ic ora_pmon` proc pmon | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -vic scan` proc Listener | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -ic scan` Listener SCAN"
+  echo -ne "${BLUE}${pora}${NC} proc Oracle | ${BLUE}`ps -ef | egrep -i oracle | grep -v grep | egrep -ic ora_pmon`${NC} proc pmon | ${BLUE}`ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -vic scan`${NC} proc Listener | ${BLUE}`ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -ic scan`${NC} Listener SCAN"
   echo ""
   cmd+=('ps -ef | egrep -i oracle | grep -v grep | egrep -i ora_pmon')
 fi
 # HBA
 hba=`fcinfo  hba-port | egrep -c "HBA Port"`
 if [[ $hba -ge 1 ]]; then
-  echo -ne "${hba} cartes HBA , `fcinfo  hba-port | egrep -ic online` Carte Online, `fcinfo  hba-port | egrep -ic offline` Carte Offline | `luxadm -e port | grep -ic 'CONNECTED' ` pci connected"
+  echo -ne "${BLUE}${hba}${NC} cartes HBA , ${BLUE}`fcinfo  hba-port | egrep -ic online`${NC} Carte Online, ${BLUE}`fcinfo  hba-port | egrep -ic offline`${NC} Carte Offline | ${BLUE}`luxadm -e port | grep -ic 'CONNECTED'`${NC} pci connected"
   echo ""
 fi
 for ct in `fcinfo  hba-port | egrep "HBA Port" | cut -d ":" -f 2`
 do
   hbaerr=`fcinfo  hba-port $ct | egrep -c offline`
-  [ ${hbaerr} -ge 1 ] && echo "$ct `fcinfo  hba-port $ct | egrep offline` "
+  [ ${hbaerr} -ge 1 ] && echo -e "${BLUE}${ct}${NC} `fcinfo  hba-port $ct | egrep offline` "
   cmd+=('fcinfo  hba-port $ct | egrep offline')
 done
 # echo "`luxadm -e port | grep -ic 'CONNECTED' ` pci connected"
@@ -218,7 +217,7 @@ if [[ -e /sbin/zpool ]]; then
 fi
 # [[ ${zp} -ge 1 ]] && echo -ne "${zp} pool zfs,`zpool list | grep -v NAME | grep -vc ONLINE` offline/degrade"
 if [[ ${zp} -ge 1 ]]; then
-  echo -ne "${zp} pool zfs,`zpool list | grep -v NAME | grep -vc ONLINE` offline/degrade"
+  echo -ne "${BLUE}${zp}${NC} pool zfs,${BLUE}`zpool list | grep -v NAME | grep -vc ONLINE`${NC} offline/degrade"
   echo ""
   zpe=`zpool list | grep -v NAME | egrep -vc ONLINE`
   if [[ ${zpe} -ge 1 ]]; then
@@ -235,7 +234,7 @@ do
     [ -f $file ] && ero="$(cptlog $i $file)"
     if [ "$ero" != '0' ];then
        logerr=$((logerr+1))
-       echo -e "egrep -i $i ${file} ${RED}(${ero}${NC})${BLUE} `egrep -i $i ${file} | head -1 | cut -d ' ' -f 1,3`${NC}"
+       echo -e "egrep -i $i ${file} (${RED}${ero}${NC})${BLUE} `egrep -i $i ${file} | tail -1 | cut -d ' ' -f 1,3`${NC}"
      fi
     ero='0'
   done
@@ -254,33 +253,40 @@ mdb=`echo "::memstat" | mdb -k | egrep '[5-9][0-9]\%'`
 if [[ `echo ${mdb} | wc -l` -ge 1 ]];then
   echo "x Mem stat :"
   echo $mdb
-  cmd+=('::memstat" | mdb -k')
+  cmd+=('echo "::memstat" | mdb -k')
 fi
 
 # nb file open by process
 # pfiles 29803 | nawk '/[0-9]: /{a++}END{print a}' WIP
 # proc cpu gourmand
-echo "* Processus utilisant le plus de CPU:"
+echo -e "* Processus utilisant le plus de ${BLUE}CPU ${NC}:"
 prstat -s cpu -Z 1 1 | grep -v PID | head -2
-
+IFS=$'\n'
+cpupid="top -p `prstat -s cpu -Z 1 1 | grep -v PID | head -1 | awk '{print $1}'`"
+cmd+=($cpupid)
+IFS=$OLDIFS
 # proc ram gourmand
-echo "* Processus utilisant le plus de RAM:"
+echo -e "* Processus utilisant le plus de ${BLUE}RAM:${NC}"
 prstat -s rss -Z 1 1 | grep -v PID | head -2
 # prstat -s rss -n 2 -Z 1 1 | grep -v Total
+IFS=$'\n'
+rampid="top -p `prstat -s rss -Z 1 1 | grep -v PID | head -1 | awk '{print $1}'`"
+cmd+=($rampid)
+IFS=$OLDIFS
 
 # check tmp
 dftmp=`df -h /tmp | egrep "([5-9][0-9]+%)|(100)\%"`
 if [[ -n ${dftmp} ]]; then
-  echo "x Partition /tmp à + de 50%"
+  echo -e "x ${RED}Partition /tmp${NC} à + de 50%"
   df -h /tmp
   cmd+=('df -h /tmp')
 fi
 
 # Swap usage
-echo "* Processus utilisant le swap"
+echo -e "* Processus utilisant le ${BLUE}swap${NC}"
 for i in /proc/*; do
  SWAP=`pmap -S $i 2> /dev/null | grep ^total | awk '{ print $3; }'`
- [ "xx$SWAP" != "xx" ] && echo "$(($SWAP/1024)) Mbytes -> Proc $i"
+ [ "xx$SWAP" != "xx" ] && echo -e "$(($SWAP/1024)) Mbytes -> Proc $i"
 done | sort -n | tail -2
 
 
@@ -292,12 +298,12 @@ done | sort -n | tail -2
 IFS=$'\n'
 for i in ${cmd[@]}
 do
-  echo " * $i"
+  echo $i
 done
 
 # Display commands df -h for Fiile system
 if [ $fs -ge 1 ];then
-  df -h | egrep "33" | awk '{print "df -h",$NF}'
+  df -h | egrep  "([89][0-9]+%)|(100)%|size" | awk '{print "df -h",$NF}'
 fi
+# df -h | egrep  "33" | awk '{print "df -h",$NF}'
 IFS=$OLDIFS # reset to the original value $IFS
-echo "done"
