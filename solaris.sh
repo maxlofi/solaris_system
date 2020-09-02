@@ -192,7 +192,7 @@ fi
 # Oracle
 pora=`ps -ef | grep -v grep | egrep -ic oracle`
 if [ ${pora} -ge 1 ];then
-  echo -ne "$ {pora} proc Oracle | `ps -ef | egrep -i oracle | grep -v grep | egrep -ic ora_pmon` proc pmon | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -vic scan` proc Listener | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -ic scan` Listener SCAN"
+  echo -ne "${pora} proc Oracle | `ps -ef | egrep -i oracle | grep -v grep | egrep -ic ora_pmon` proc pmon | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -vic scan` proc Listener | `ps -ef | egrep -i "oracle|grid" | egrep -i LISTENER | egrep -ic scan` Listener SCAN"
   echo ""
   cmd+=('ps -ef | egrep -i oracle | grep -v grep | egrep -i ora_pmon')
 fi
