@@ -46,7 +46,15 @@ echo ""
 
 }
 
-echo "#Socle `hostname` `who -b | tr -s ' '` - `prtconf -b | grep ORCL | awk '{print $2}'` - `date`";
+IFS=$'\n'
+virtu=`virtinfo -a`
+virt=""
+[[ `echo $virtu | grep -c "virtinfo can only be run from the global zone"` -ge 1 ]] && virt="zone_locale"
+[[ `echo $virtu | grep -c 'LDoms guest'` -ge 1 ]] && virt="LDoms guest de `virtinfo -a | egrep 'Control domain' | cut -d ":" -f 2` ,"
+[[ `zoneadm list 2> /dev/null | grep -c "global"` -ge 1 ]] && virt="${virt} zone global "
+diag="${diag} (${virt})"
+IFS=$OLDIFS
+echo -e "#Socle `hostname` `who -b | tr -s ' '` - `prtconf -b | grep ORCL | awk '{print $2}'` - ${BLUE}${virt}${NC}";
 if [ -f /var/adm/sa/sa`date +%d` ]; # test if sarfile of the say exist
 then
    [ `sar -u | grep Average | awk '{print $5}'` -le 40 ] && echo "x CPU Server `hostname` surcharge"
@@ -99,7 +107,7 @@ do
   else
     usage="faiblement"
   fi
-  diag="${diag} le swap est ${usage} solicite, seul ${swapd} % est disponible,"
+  diag="${diag} le swap est ${usage} sollicite, seul ${swapd} % est disponible,"
 	;;
 	5) # Taille de la liste d'espaces libres
 	b=$(/usr/sbin/prtconf | /usr/bin/awk '/Memory/ {print $3*1024}');
@@ -162,9 +170,9 @@ done
 mat=`fmadm faulty | wc -l`
 if [[ ${mat} -gt 0 ]];then
    echo "x Erreur materiel potentiel ! (please run fmadm faulty)" && fmadm faulty | grep "Fault class"  | sort -u
-   diag="$diag, Une erreur materiel sur le server `hostname`"
+   diag="$diag, Une erreur materielle sur le server `hostname`"
  else
-   diag="$diag, Pas d'erreur materiel sur le server `hostname`"
+   diag="$diag, Pas d'erreur materielle sur le server `hostname`"
 fi
 [ `prtdiag -v | grep -c "No failures found"` -eq 1 ] && echo -e "${GREEN}* Pas d'erreur materiel${NC}"
 # prtdiag -v | grep "No failures found"
@@ -220,7 +228,7 @@ if [[ $pzz -ge 1 ]]; then
   cmd+=('ps -ef | grep -v grep | grep -i defun')
 else
   echo -e "* Pas de proc ${GREEN}zombie${NC}"
-  diag="${diag} le server `hostname` n'as pas processus zombie."
+  diag="${diag} le server `hostname` n'a pas processus zombie."
 fi
 
 
