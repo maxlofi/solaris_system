@@ -166,14 +166,14 @@ if [[ ${mat} -gt 0 ]];then
  else
    diag="$diag, Pas d'erreur materiel sur le server `hostname`"
 fi
-[ `prtdiag -v | grep -ic fail` -gt 0 ] && echo "x Erreur Materiel "
-prtdiag -v | grep -i fail
+[ `prtdiag -v | grep -c "No failures found"` -eq 0 ] && echo -e "${GREEN}Pas d'erreur materiel${NC}"
+prtdiag -v | grep "No failures found"
 # IO error
 diskerro=0
 [ `iostat -en | egrep -v "error|device" | awk '{ if ($4 > 30 )print $4, " = ", $5}' | wc -l ` -ge 1 ] && diskerro=1 && echo "x Error disk" && echo "${server} iostat -en"
 if [[ $diskerro -eq 1 ]];then
   iostat -en | egrep -v "error|device" | awk '{ if ($4 > 30 )print " ",$4, " = ", $5}' | sort -nr
-  diag="$diag, plusieurs erreur I/O sont presentes"
+  diag="$diag, plusieurs erreur disk sont presentes"
 fi
 
 # close Waiting
