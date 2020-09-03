@@ -176,6 +176,7 @@ if [[ `iostat -En | egrep -c "Errors: [0-9][0-9][0-9]+"` -ge 1 ]]; then
   echo -e "* ${RED}${d}${NC} erreurs disk et ${RED}$l${NC} erreur LUN"
   iostat -En | egrep "Errors: [0-9][0-9][0-9]+"
   diag="${diag}, ${d} erreurs I/O sur disk et $l erreurs I/O sur LUN"
+  cmd+=('iostat -En | egrep "Errors: [0-9][0-9][0-9]+"')
 fi
 
 # close Waiting
