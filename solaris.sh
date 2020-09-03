@@ -166,14 +166,16 @@ if [[ ${mat} -gt 0 ]];then
  else
    diag="$diag, Pas d'erreur materiel sur le server `hostname`"
 fi
-[ `prtdiag -v | grep -c "No failures found"` -eq 0 ] && echo -e "${GREEN}Pas d'erreur materiel${NC}"
-prtdiag -v | grep "No failures found"
+[ `prtdiag -v | grep -c "No failures found"` -eq 1 ] && echo -e "${GREEN}* Pas d'erreur materiel${NC}"
+# prtdiag -v | grep "No failures found"
 # IO error
-diskerro=0
-[ `iostat -en | egrep -v "error|device" | awk '{ if ($4 > 30 )print $4, " = ", $5}' | wc -l ` -ge 1 ] && diskerro=1 && echo "x Error disk" && echo "${server} iostat -en"
-if [[ $diskerro -eq 1 ]];then
-  iostat -en | egrep -v "error|device" | awk '{ if ($4 > 30 )print " ",$4, " = ", $5}' | sort -nr
-  diag="$diag, plusieurs erreur disk sont presentes"
+
+if [[ `iostat -En | egrep -c "Errors: [0-9][0-9][0-9]+"` -ge 1 ]]; then
+  d=`iostat -En | egrep "Errors: [0-9][0-9][0-9]+" | egrep -c "^c6t"`
+  l=`iostat -En | egrep "Errors: [0-9][0-9][0-9]+" | egrep -cv "^c6t"`
+  echo -e "* ${RED}${d}${NC} erreurs disk et ${RED}$l${NC} erreur LUN"
+  iostat -En | egrep "Errors: [0-9][0-9][0-9]+"
+  diag="${diag}, ${d} erreurs I/O sur disk et $l erreurs I/O sur LUN"
 fi
 
 # close Waiting
@@ -326,11 +328,11 @@ if [[ -n ${dftmp} ]]; then
 fi
 
 # Swap usage
-echo -e "* Processus utilisant le ${BLUE}swap${NC}"
-for i in /proc/*; do
- SWAP=`pmap -S $i 2> /dev/null | grep ^total | awk '{ print $3; }'`
- [ "xx$SWAP" != "xx" ] && echo -e "$(($SWAP/1024)) Mbytes -> Proc $i"
-done | sort -n | tail -2
+# echo -e "* Processus utilisant le ${BLUE}swap${NC}"
+# for i in /proc/*; do
+#  SWAP=`pmap -S $i 2> /dev/null | grep ^total | awk '{ print $3; }'`
+#  [ "xx$SWAP" != "xx" ] && echo -e "$(($SWAP/1024)) Mbytes -> Proc $i"
+# done | sort -n | tail -2
 
 
 #error metadevice ( Work in progress )
